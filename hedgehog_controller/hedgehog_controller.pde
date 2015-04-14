@@ -20,12 +20,15 @@ float right;
 float averageVolume;
 
 
+ArrayList<Behavior> behaviors = new ArrayList<Behavior>();
+
+
+
 // ------------------------------------------------------------
 void setup() {
   size(1100, 1100);
   frameRate(25);
   registerPre(this);
-
 
 
   // Setup ControlP5
@@ -43,7 +46,7 @@ void setup() {
       .setSize(400, 40)
         .setRange(0, 11.0)
           ;
-          
+
   cp5.loadProperties("hedgehog.properties");
 
 
@@ -75,7 +78,7 @@ void setupServos() {
   angle = 0;
   ring_radius = 167;
   for (int i=1; i<9; i++) {
-    servos[i] = new Servo(angle, ring_radius, id);
+    servos[i] = new Servo(radians(angle), ring_radius, id);
     angle += 360/8.0;
     id++;
   }
@@ -84,7 +87,7 @@ void setupServos() {
   angle = 0;
   ring_radius = 296;
   for (int i=9; i<23; i++) {
-    servos[i] = new Servo(angle, ring_radius, id);
+    servos[i] = new Servo(radians(angle), ring_radius, id);
     angle += 360/14.0;
     id++;
   }
@@ -95,41 +98,54 @@ void setupServos() {
   angle = 0;
   ring_radius = 425;
   for (int i=23; i<43; i++) {
-    servos[i] = new Servo(angle, ring_radius, id);
+    servos[i] = new Servo(radians(angle), ring_radius, id);
     angle += 360/20.0;
     id++;
   }
 }
 
 
+// ------------------------------------------------------------
 void updateAudio() {
   float sum=0;
-  for (int i = 0; i < mic.bufferSize() - 1; i++) {
+  for (int i = 0; i < mic.bufferSize () - 1; i++) {
     sum += abs(mic.right.get(i));
   }
   right = sum / mic.bufferSize();
 
   sum=0;
-  for (int i = 0; i < mic.bufferSize() - 1; i++) {
+  for (int i = 0; i < mic.bufferSize () - 1; i++) {
     sum += abs(mic.left.get(i));
   }
   left = sum / mic.bufferSize();
-  
+
   averageVolume = (left+right)/2.0;
 }
+
+
+
 
 // ------------------------------------------------------------
 void pre() {
   updateAudio();
-  
+
   int now = millis();
   float deltaTime = (now-lastFrameTime)/1000.0;
   lastFrameTime = now;
 
+  for (int i = behaviors.size () - 1; i >= 0; i--) {
+    Behavior b = behaviors.get(i);
+    b.update(deltaTime);
+    if (b.finished()) {
+      behaviors.remove(i);
+    }
+  }
+
   for (int i=0; i<servos.length; i++) {
-    servos[i].update(deltaTime * speed);
+    servos[i].update(deltaTime);
   }
 }
+
 
 // ------------------------------------------------------------
 void draw() {
@@ -137,9 +153,29 @@ void draw() {
   background(0);
 
   pushMatrix();
+  translate(width-300, 20);
+
+  stroke(255);
+  textSize(14);
+
+
+  float y = 0;
+  for (int i=0; i<behaviors.size (); i++) {
+    text(behaviors.get(i).toString(), 0, y);
+    y += 14;
+  }
+
+  popMatrix();
+
+  pushMatrix();
   translate(width/2, height/2);
+
   for (int i=0; i<servos.length; i++) {
     servos[i].draw();
+  }
+
+  for (int i=0; i<behaviors.size (); i++) {
+    behaviors.get(i).draw();
   }
 
   popMatrix();
@@ -150,12 +186,15 @@ void draw() {
 
 // ------------------------------------------------------------
 void drawAudioPreview() {
-    // draw the waveforms so we can see what we are monitoring
-  stroke(255);
+  // draw the waveforms so we can see what we are monitoring
+  strokeWeight(1);
+
   float x1, y1, x2, y2;
   float h = 100;
   pushMatrix();
   translate(0, height-150);
+
+  stroke(100, 200, 150);
   for (int i = 0; i < mic.bufferSize () - 1; i++)
   {
     x1 = map(i, 0, mic.bufferSize()-1, 0, width);
@@ -166,8 +205,9 @@ void drawAudioPreview() {
   }
   noStroke();
   rect(0, 0, map(left, 0, 1, 0, width), 10);
+
   translate(0, 100);
-  
+  stroke(100, 200, 150);
   for (int i = 0; i < mic.bufferSize () - 1; i++)
   { 
     x1 = map(i, 0, mic.bufferSize()-1, 0, width);
@@ -176,6 +216,7 @@ void drawAudioPreview() {
     y2 = mic.right.get(i+1) * h;
     line( x1, y1, x2, y2 );
   }
+
   noStroke();
   rect(0, 0, map(right, 0, 1, 0, width), 10);
   popMatrix();
@@ -209,6 +250,10 @@ void keyPressed() {
     cp5.saveProperties("hedgehog.properties");
   } else if (key=='l') {
     cp5.loadProperties("hedgehog.properties");
+  } else if (key == '1') {
+    behaviors.add(new Shockwave());
+  }else if (key == '2') {
+    behaviors.add(new Wipe());
   }
 }
 
@@ -224,6 +269,8 @@ void oscEvent(OscMessage theOscMessage) {
 
 // ------------------------------------------------------------
 void stop() {
+  cp5.saveProperties("hedgehog.properties");
+
   mic.close();
   minim.stop();
   super.stop();
