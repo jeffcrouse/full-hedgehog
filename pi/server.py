@@ -13,6 +13,7 @@ pwm = PWM(0x40, debug=False)
 pwm.setPWMFreq(60)                        # Set frequency to 60 Hz
 
 
+
 servoMin = 380  # Min pulse length out of 4096
 servoMax = 520  # Max pulse length out of 4096
 def pwm_handler(addr, tags, stuff, source):
@@ -23,10 +24,9 @@ def pwm_handler(addr, tags, stuff, source):
 	# print "with addr : %s" % addr
 	# print "typetags %s" % tags
 	# #print "data %s" % stuff
-	print "channel %s=%s" % (channel, value)
+	#print "channel %s=%s" % (channel, value)
 	# print "---"
 	pwm.setPWM(channel, 0, int(value))
-
 
 s.addMsgHandler("/pwm", pwm_handler)
 
@@ -45,9 +45,9 @@ st.start()
 # Loop while threads are running.
 try :
 	while 1 :
+
 		time.sleep(10)
-
-
+ 
 except KeyboardInterrupt :
 	print "\nClosing OSCServer."
 	s.close()
