@@ -6,7 +6,7 @@ import ddf.minim.*;
 
 OscP5 oscP5;
 NetAddress pi;
-Servo[] servos = new Servo[9];
+Servo[] servos = new Servo[43];
 int lastFrameTime = 0;
 ControlP5 cp5;
 
@@ -15,12 +15,14 @@ float oscMax = 1;
 float speed;
 Minim minim;
 AudioInput mic;
-
+float left;
+float right;
+float averageVolume;
 
 
 // ------------------------------------------------------------
 void setup() {
-  size(1000, 1000);
+  size(1100, 1100);
   frameRate(25);
   registerPre(this);
 
@@ -69,30 +71,63 @@ void setupServos() {
   id++;
 
 
-  // First ring
+  // First ring 8 waggglers (1-8)
   angle = 0;
-  ring_radius = 164;
-  for (int i=1; i<servos.length; i++) {
+  ring_radius = 167;
+  for (int i=1; i<9; i++) {
     servos[i] = new Servo(angle, ring_radius, id);
     angle += 360/8.0;
     id++;
   }
 
-  // Second ring
+  // Second ring 14 wagglers (9-22)
   angle = 0;
-  ring_radius = 290;
-  // COMING SOON!
+  ring_radius = 296;
+  for (int i=9; i<23; i++) {
+    servos[i] = new Servo(angle, ring_radius, id);
+    angle += 360/14.0;
+    id++;
+  }
+
+
+
+  // third ring 20 wagglers (24-42) 
+  angle = 0;
+  ring_radius = 425;
+  for (int i=23; i<43; i++) {
+    servos[i] = new Servo(angle, ring_radius, id);
+    angle += 360/20.0;
+    id++;
+  }
 }
 
 
+void updateAudio() {
+  float sum=0;
+  for (int i = 0; i < mic.bufferSize() - 1; i++) {
+    sum += abs(mic.right.get(i));
+  }
+  right = sum / mic.bufferSize();
+
+  sum=0;
+  for (int i = 0; i < mic.bufferSize() - 1; i++) {
+    sum += abs(mic.left.get(i));
+  }
+  left = sum / mic.bufferSize();
+  
+  averageVolume = (left+right)/2.0;
+}
+
 // ------------------------------------------------------------
 void pre() {
+  updateAudio();
+  
   int now = millis();
   float deltaTime = (now-lastFrameTime)/1000.0;
   lastFrameTime = now;
 
   for (int i=0; i<servos.length; i++) {
-    servos[i].update(deltaTime * speed);
+    servos[i].update(deltaTime * speed );
   }
 }
 
@@ -124,7 +159,10 @@ void draw() {
     y2 = mic.left.get(i+1) * h;
     line( x1, y1, x2, y2 );
   }
+  noStroke();
+  rect(0, 0, map(left, 0, 1, 0, width), 10);
   translate(0, 100);
+  
   for (int i = 0; i < mic.bufferSize () - 1; i++)
   { 
     x1 = map(i, 0, mic.bufferSize()-1, 0, width);
@@ -133,9 +171,11 @@ void draw() {
     y2 = mic.right.get(i+1) * h;
     line( x1, y1, x2, y2 );
   }
+  noStroke();
+  rect(0, 0, map(right, 0, 1, 0, width), 10);
   popMatrix();
   
-  float volume = mic.
+  //println("left", left, "right", right);
 }
 
 // ------------------------------------------------------------

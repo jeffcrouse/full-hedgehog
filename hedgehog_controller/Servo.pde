@@ -1,7 +1,7 @@
 
 
 int[] channel_map = new int[] {
-  0, 1, 2, 3, 4, 5, 6, 7, 12
+  0, 1, 2, 3, 4, 5, 6, 7, 12, 
 };
 float[] offset_map = new float[] {
   0, 0, 0, 0, 0, .28, 0, -0.1, 0
@@ -28,8 +28,8 @@ class Servo {
     pos.y = sin(radians(angle)) * radius;
     
     this.id = id;
-    this.channel = channel_map[id];
-    this.offset = offset_map[id];
+    this.channel = (id<channel_map.length) ? channel_map[id] : -1;
+    this.offset = (id<offset_map.length) ? offset_map[id] : -1;
     this.value = 0;
     this.lastValueSent = -1;
     //this.mappedValue = map(this.value, 0, 1, oscMin, oscMax);
@@ -47,7 +47,7 @@ class Servo {
     value += offset;
     value = map(value, 0, 1, oscMin, oscMax);
 
-    if (abs(value-lastValueSent)>0.005) 
+    if (abs(value-lastValueSent)>0.005 && channel!=-1) 
     {
       OscMessage msg = new OscMessage("/pwm");
       msg.add( channel );
@@ -71,9 +71,9 @@ class Servo {
 
     noStroke();
     fill(255-c);
-    textSize(24);
+    textSize(18);
    
-    text(label, pos.x-5, pos.y+10);
+    text(label, pos.x-20, pos.y+10);
   }
 }
 
