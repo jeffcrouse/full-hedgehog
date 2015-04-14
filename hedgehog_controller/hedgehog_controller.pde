@@ -127,7 +127,7 @@ void pre() {
   lastFrameTime = now;
 
   for (int i=0; i<servos.length; i++) {
-    servos[i].update(deltaTime * speed );
+    servos[i].update(deltaTime * speed);
   }
 }
 
@@ -144,8 +144,13 @@ void draw() {
 
   popMatrix();
 
+  drawAudioPreview();
+}
 
-  // draw the waveforms so we can see what we are monitoring
+
+// ------------------------------------------------------------
+void drawAudioPreview() {
+    // draw the waveforms so we can see what we are monitoring
   stroke(255);
   float x1, y1, x2, y2;
   float h = 100;
@@ -174,8 +179,6 @@ void draw() {
   noStroke();
   rect(0, 0, map(right, 0, 1, 0, width), 10);
   popMatrix();
-  
-  //println("left", left, "right", right);
 }
 
 // ------------------------------------------------------------
