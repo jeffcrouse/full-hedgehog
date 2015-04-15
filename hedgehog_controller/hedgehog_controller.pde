@@ -1,5 +1,8 @@
 // TO DO
 // 1. Optimize OSC sending - send all updates in 1 message
+// 2. Audio events
+// 3. Onset detection
+
 
 import controlP5.*;
 import oscP5.*;
@@ -19,12 +22,13 @@ float oscMax = 1;
 float speed;
 Minim minim;
 AudioInput mic;
-float left;
-float right;
-float averageVolume;
-
+float levelLeft = 0;
+float levelRight = 0;
+float level, levelMovingAgerage = 0;
+ArrayList<Float> levels = new ArrayList<Float>();
 ArrayList<Behavior> behaviors = new ArrayList<Behavior>();
-
+float onsetCounter = 0;
+float onsetRecoveryPeriod = 3;
 
 
 // ------------------------------------------------------------
@@ -109,32 +113,78 @@ void setupServos() {
 
 
 // ------------------------------------------------------------
-void updateAudio() {
+void updateAudio(float deltaTime) {
+
+  // calculate the left and right channels
   float sum=0;
   for (int i = 0; i < mic.bufferSize () - 1; i++) {
     sum += abs(mic.right.get(i));
   }
-  right = sum / mic.bufferSize();
+  levelRight = sum / mic.bufferSize();
 
   sum=0;
   for (int i = 0; i < mic.bufferSize () - 1; i++) {
     sum += abs(mic.left.get(i));
   }
-  left = sum / mic.bufferSize();
+  levelLeft = sum / mic.bufferSize();
 
-  averageVolume = (left+right)/2.0;
+  // Average level
+  level = (levelLeft+levelRight)/2.0;
+
+  // Calculate the moving average of the last 30 samples
+  levels.add( level );
+  if (levels.size() > 120) {
+    levels.remove(0);
+  }
+  sum = 0;
+  for (int i=0; i<levels.size (); i++) {
+    sum += levels.get(i);
+  }
+  levelMovingAgerage = sum / (float)levels.size();
+
+
+  // Do onset calculation
+  if (onsetCounter > 0) {
+    onsetCounter -= deltaTime;
+  }
+
+  float louder = level - levelMovingAgerage;
+  float thresh = level * 0.8;
+  if (louder > thresh && onsetCounter < 0.01) {
+    onOnset();
+    onsetCounter = onsetRecoveryPeriod;
+  }
 }
 
-
+// ------------------------------------------------------------
+void onOnset() {
+  int n = (int)random(4);
+  switch(n) {
+  case 0:
+    float r = random(TWO_PI);
+    float theta = random(300);
+    behaviors.add(new Shockwave(r, theta));
+    break;
+  case 1:
+    behaviors.add(new RadialWipe());
+    break;
+  case 2:
+    behaviors.add( new HorizontalWipe() );
+    break;
+  case 3:
+    behaviors.add( new Spiral() );
+    break;
+  }
+}
 
 
 // ------------------------------------------------------------
 void pre() {
-  updateAudio();
-
   int now = millis();
   float deltaTime = (now-lastFrameTime)/1000.0;
   lastFrameTime = now;
+
+  updateAudio(deltaTime);
 
   for (int i = behaviors.size () - 1; i >= 0; i--) {
     Behavior b = behaviors.get(i);
@@ -153,7 +203,8 @@ void pre() {
 // ------------------------------------------------------------
 void draw() {
 
-  background(0);
+  float b = map(onsetCounter, 0, onsetRecoveryPeriod, 0, 255);
+  background(b);
 
   pushMatrix();
   translate(width-300, 20);
@@ -197,6 +248,13 @@ void drawAudioPreview() {
   pushMatrix();
   translate(0, height-150);
 
+  noStroke();
+  fill(255);
+  rect(0, 0, map(levelLeft, 0, 1, 0, width), 10);
+  rect(0, 20, map(levelMovingAgerage, 0, 1, 0, width), 20);
+  rect(0, 50, map(levelRight, 0, 1, 0, width), 10);
+
+
   stroke(100, 200, 150);
   for (int i = 0; i < mic.bufferSize () - 1; i++)
   {
@@ -206,11 +264,7 @@ void drawAudioPreview() {
     y2 = mic.left.get(i+1) * h;
     line( x1, y1, x2, y2 );
   }
-  noStroke();
-  rect(0, 0, map(left, 0, 1, 0, width), 10);
-
   translate(0, 100);
-  stroke(100, 200, 150);
   for (int i = 0; i < mic.bufferSize () - 1; i++)
   { 
     x1 = map(i, 0, mic.bufferSize()-1, 0, width);
@@ -219,9 +273,8 @@ void drawAudioPreview() {
     y2 = mic.right.get(i+1) * h;
     line( x1, y1, x2, y2 );
   }
-
   noStroke();
-  rect(0, 0, map(right, 0, 1, 0, width), 10);
+
   popMatrix();
 }
 
@@ -257,11 +310,11 @@ void keyPressed() {
     float r = random(TWO_PI);
     float theta = random(300);
     behaviors.add(new Shockwave(r, theta));
-  }else if (key == '2') {
+  } else if (key == '2') {
     behaviors.add(new RadialWipe());
-  } else if( key=='3') {
+  } else if ( key=='3') {
     behaviors.add( new HorizontalWipe() );
-  } else if( key=='4') {
+  } else if ( key=='4') {
     behaviors.add( new Spiral() );
   }
 }
@@ -284,5 +337,4 @@ void stop() {
   minim.stop();
   super.stop();
 }
-
 

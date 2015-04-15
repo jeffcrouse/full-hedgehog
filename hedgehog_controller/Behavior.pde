@@ -108,7 +108,6 @@ public class Shockwave extends Behavior {
       float center_dist = servos[i].center.dist( this.center );
       float dist_to_perimeter = abs(center_dist - this.current_radius);
 
-
       float effect = map(dist_to_perimeter, 0, ring_width, max, 0);
       effect = constrain(effect, 0, max);
 
@@ -262,16 +261,18 @@ public class Spiral extends Behavior {
   void update(float deltaTime) {
     r += deltaTime * r_speed;
     theta += deltaTime * theta_speed;
-    
+
     center.x = cos(theta) * r;
     center.y = sin(theta) * r;
-    
-   float max = deltaTime * 6.0;
- 
+
+    float max = deltaTime * 6.0;
+
     // DO something to the servos
     for (int i=0; i<servos.length; i++) {
       float dist = servos[i].center.dist( this.center );
       float effect = map(dist, 0, size, max, 0);
+      effect = constrain(effect, 0, max);
+      
       servos[i].value += effect;
     }
   }
@@ -288,4 +289,5 @@ public class Spiral extends Behavior {
     return this.r > 600;
   }
 }
+
 
