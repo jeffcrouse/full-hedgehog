@@ -3,9 +3,7 @@
  *  Base class for all behaviors that can be applied to the servos
  **************************************/
 public class Behavior {
-
   private int born;
-  
   Behavior() {
     born = millis();
   }
@@ -26,7 +24,39 @@ public class Behavior {
 
 
 
+/**************************************
+ * Use this as a template for new behaviors
+ * Put a description here
+ **************************************/
+public class SampleBehavior extends Behavior {
 
+  // ---------------------------------------
+  SampleBehavior() {
+    super();
+  }
+
+  // ---------------------------------------
+  public String toString() {
+    return "[change me] ";
+  }
+
+  // ---------------------------------------
+  void update(float deltaTime) {
+    // DO something to the servos
+    for (int i=0; i<servos.length; i++) {
+      servos[i].value += 0;
+    }
+  }
+
+  // ---------------------------------------
+  void draw() {
+  }
+
+  // ---------------------------------------
+  boolean finished() {
+    return false;
+  }
+}
 
 
 /**************************************
@@ -35,19 +65,28 @@ public class Behavior {
  **************************************/
 public class Shockwave extends Behavior {
 
-  private float radius;
+  private float theta;
+  private float r;
+  private PVector center = new PVector();
+  private float current_radius;
   private float ring_width = 100;
   private float speed = 100;
-  
+
   // ---------------------------------------
-  Shockwave() {
+  Shockwave(float theta, float r) {
     super();
-    radius = 0;
+
+    this.theta = theta;
+    this.r = r;
+    this.center.x = cos(theta) * r;
+    this.center.y = sin(theta) * r;
+
+    this.current_radius = 0;
   }
 
   // ---------------------------------------
   public String toString() {
-    return "Shockwave "+radius;
+    return "Shockwave "+current_radius;
   }
 
   // ---------------------------------------
@@ -55,27 +94,31 @@ public class Shockwave extends Behavior {
     noFill();
     strokeWeight(ring_width);
     stroke(100, 200, 100, 100);
-    ellipse(0, 0, radius*2, radius*2);
+    ellipse(center.x, center.y, current_radius*2, current_radius*2);
   }
 
   // ---------------------------------------
   void update(float deltaTime) {
-    this.radius += (deltaTime * speed);
+    this.current_radius += (deltaTime * speed);
 
     float max = deltaTime * 4.0;
-  
+
     for (int i=0; i<servos.length; i++) {
-      float dist = abs(servos[i].radius - this.radius);
-      float effect = map(dist, 0, ring_width, max, 0);
+
+      float center_dist = servos[i].center.dist( this.center );
+      float dist_to_perimeter = abs(center_dist - this.current_radius);
+
+
+      float effect = map(dist_to_perimeter, 0, ring_width, max, 0);
       effect = constrain(effect, 0, max);
-      
+
       servos[i].value += effect;
     }
   }
 
   // ---------------------------------------
   boolean finished() {
-    return radius > 575;
+    return current_radius > 875;
   }
 }
 
@@ -86,22 +129,22 @@ public class Shockwave extends Behavior {
  *  A simple wave that starts at the 
  *  center and extends outwatds
  **************************************/
-public class Wipe extends Behavior {
+public class RadialWipe extends Behavior {
 
-  private float angle;
+  private float theta;
   private float wipe_width = PI/4.0;
   private float speed = PI;
   private int n = 3;
-  
+
   // ---------------------------------------
-  Wipe() {
+  RadialWipe() {
     super();
-    angle = 0;
+    theta = 0;
   }
 
   // ---------------------------------------
   public String toString() {
-    return "Wipe "+angle;
+    return "Wipe "+theta;
   }
 
   // ---------------------------------------
@@ -109,28 +152,28 @@ public class Wipe extends Behavior {
     noFill();
     strokeWeight(50);
     stroke(100, 200, 100, 100);
-    
-    float x = cos(angle) * 500;
-    float y = sin(angle) * 500;
+
+    float x = cos(theta) * 500;
+    float y = sin(theta) * 500;
     line(0, 0, x, y);
   }
 
   // ---------------------------------------
   void update(float deltaTime) {
-    this.angle += (deltaTime * speed);
-    if(this.angle > TWO_PI) {
-      this.angle %= (TWO_PI);
+    this.theta += (deltaTime * speed);
+    if (this.theta > TWO_PI) {
+      this.theta %= (TWO_PI);
       this.n--;
     }
-    
+
 
     float max = deltaTime * 10.0;
-  
+
     for (int i=0; i<servos.length; i++) {
-      float dist = abs(servos[i].angle - this.angle);
+      float dist = abs(servos[i].theta - this.theta);
       float effect = map(dist, 0, wipe_width, max, 0);
       effect = constrain(effect, 0, max);
-      
+
       servos[i].value += effect;
     }
   }
@@ -138,6 +181,111 @@ public class Wipe extends Behavior {
   // ---------------------------------------
   boolean finished() {
     return this.n < 1;
+  }
+}
+
+
+
+/**************************************
+ *  Activates servos from left to right
+ **************************************/
+public class HorizontalWipe extends Behavior {
+
+  private float wipe_width = 100;
+  private float speed = 100.0;
+  private float x = -500;
+
+  // ---------------------------------------
+  HorizontalWipe() {
+    super();
+  }
+
+  // ---------------------------------------
+  public String toString() {
+    return "HorizontalWipe "+x;
+  }
+
+  // ---------------------------------------
+  void draw() {
+    noFill();
+    strokeWeight(wipe_width);
+    stroke(100, 200, 100, 100);
+
+    line(x, -500, x, 500);
+  }
+
+  // ---------------------------------------
+  void update(float deltaTime) {
+    x += speed * deltaTime;
+
+    float max = deltaTime * 10.0;
+
+    for (int i=0; i<servos.length; i++) {
+      float dist = abs(servos[i].center.x - this.x);
+      float effect = map(dist, 0, speed, max, 0);
+      effect = constrain(effect, 0, max);
+
+      servos[i].value += effect;
+    }
+  }
+
+  // ---------------------------------------
+  boolean finished() {
+    return this.x > 500;
+  }
+}
+
+
+/**************************************
+ * Spiral effect
+ **************************************/
+public class Spiral extends Behavior {
+
+  private float r = 0;
+  private float theta = 0;
+  private PVector center = new PVector();
+  private float size = 150;
+  private float r_speed = 8;
+  private float theta_speed = 0.5;
+
+  // ---------------------------------------
+  Spiral() {
+    super();
+  }
+
+  // ---------------------------------------
+  public String toString() {
+    return "Spiral ";
+  }
+
+  // ---------------------------------------
+  void update(float deltaTime) {
+    r += deltaTime * r_speed;
+    theta += deltaTime * theta_speed;
+    
+    center.x = cos(theta) * r;
+    center.y = sin(theta) * r;
+    
+   float max = deltaTime * 6.0;
+ 
+    // DO something to the servos
+    for (int i=0; i<servos.length; i++) {
+      float dist = servos[i].center.dist( this.center );
+      float effect = map(dist, 0, size, max, 0);
+      servos[i].value += effect;
+    }
+  }
+
+  // ---------------------------------------
+  void draw() {
+    noStroke();
+    fill(100, 200, 100, 100);
+    ellipse(center.x, center.y, size, size);
+  }
+
+  // ---------------------------------------
+  boolean finished() {
+    return this.r > 600;
   }
 }
 

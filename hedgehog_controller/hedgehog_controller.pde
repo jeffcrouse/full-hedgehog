@@ -1,3 +1,6 @@
+// TO DO
+// 1. Optimize OSC sending - send all updates in 1 message
+
 import controlP5.*;
 import oscP5.*;
 import netP5.*;
@@ -10,6 +13,7 @@ Servo[] servos = new Servo[43];
 int lastFrameTime = 0;
 ControlP5 cp5;
 
+boolean autoServo = false;
 float oscMin = 0;
 float oscMax = 1;
 float speed;
@@ -18,7 +22,6 @@ AudioInput mic;
 float left;
 float right;
 float averageVolume;
-
 
 ArrayList<Behavior> behaviors = new ArrayList<Behavior>();
 
@@ -135,14 +138,14 @@ void pre() {
 
   for (int i = behaviors.size () - 1; i >= 0; i--) {
     Behavior b = behaviors.get(i);
-    b.update(deltaTime);
+    b.update(deltaTime * speed);
     if (b.finished()) {
       behaviors.remove(i);
     }
   }
 
   for (int i=0; i<servos.length; i++) {
-    servos[i].update(deltaTime);
+    servos[i].update(deltaTime * speed);
   }
 }
 
@@ -251,9 +254,15 @@ void keyPressed() {
   } else if (key=='l') {
     cp5.loadProperties("hedgehog.properties");
   } else if (key == '1') {
-    behaviors.add(new Shockwave());
+    float r = random(TWO_PI);
+    float theta = random(300);
+    behaviors.add(new Shockwave(r, theta));
   }else if (key == '2') {
-    behaviors.add(new Wipe());
+    behaviors.add(new RadialWipe());
+  } else if( key=='3') {
+    behaviors.add( new HorizontalWipe() );
+  } else if( key=='4') {
+    behaviors.add( new Spiral() );
   }
 }
 
@@ -275,4 +284,5 @@ void stop() {
   minim.stop();
   super.stop();
 }
+
 

@@ -10,9 +10,9 @@ float[] offset_map = new float[] {
 class Servo {
 
   public float diameter = 130;
-  public float angle;
-  public float radius;
-  public PVector pos = new PVector();
+  public float theta;
+  public float r;
+  public PVector center = new PVector();
   public int id;
   private float offset;
   public int channel;
@@ -20,26 +20,36 @@ class Servo {
   private float lastValueSent;
   private String label;
 
-
+  private float seed;
+  
+  
   // -------------------------------------------
-  Servo(float angle, float radius, int id) {
-    this.radius = radius;
-    this.angle = angle;
+  Servo(float theta, float r, int id) {
+    this.r = r;
+    this.theta = theta;
     this.id = id;
 
-    this.pos.x = cos(angle) * radius;
-    this.pos.y = sin(angle) * radius;
+    this.center.x = cos(theta) * r;
+    this.center.y = sin(theta) * r;
 
     this.channel = (id<channel_map.length) ? channel_map[id] : -1;
     this.offset = (id<offset_map.length) ? offset_map[id] : -1;
     this.value = 0;
     this.lastValueSent = -1;
 
+    this.seed = random(TWO_PI);
+
     label = id + ":" + channel;
   }
 
   // -------------------------------------------
   void update(float deltaTime) {
+    
+    this.seed += deltaTime;
+    if(autoServo) {
+      value = 0.5 * cos(seed) + 0.5;
+    }
+    
     value = constrain(value, 0, 1);
     if (value>0) {
       value -= deltaTime;
@@ -71,13 +81,13 @@ class Servo {
     fill(c);
     stroke(204, 102, 0);
     strokeWeight(4);
-    ellipse(pos.x, pos.y, diameter, diameter);
+    ellipse(center.x, center.y, diameter, diameter);
 
     noStroke();
     fill(255-c);
     textSize(18);
 
-    text(label, pos.x-20, pos.y+10);
+    text(label, center.x-20, center.y+10);
   }
 }
 
