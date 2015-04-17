@@ -1,59 +1,45 @@
 #!/usr/bin/python
 
 from Adafruit_PWM_Servo_Driver import PWM
-import time
+import time, math
+from ofMap import ofMap
 
-# ===========================================================================
-# Example Code
-# ===========================================================================
-
-# Initialise the PWM device using the default address
-#pwm = PWM(0x40)
-# Note if you'd like more debug output you can instead run:
-pwm = PWM(0x40, debug=True)
-
+TWO_PI = math.pi * 2
 servoMin = 380  # Min pulse length out of 4096
 servoMax = 520  # Max pulse length out of 4096
 
-channels = [0, 1, 2, 3, 4, 5, 6, 7, 12]
-offsets = [0, 0, 0, 0, 0, 40, 0, -20, 0]
 
-def setServoPulse(channel, pulse):
-	pulseLength = 1000000                   # 1,000,000 us per second
-	pulseLength /= 60                       # 60 Hz
-	print "%d us per period" % pulseLength
-	pulseLength /= 4096                     # 12 bits of resolution
-	print "%d us per bit" % pulseLength
-	pulse *= 1000
-	pulse /= pulseLength
-	pwm.setPWM(channel, 0, pulse)
+pwm = []
+pwm.append( PWM(0x40, debug=False) )
+pwm.append( PWM(0x41, debug=False) )
+pwm.append( PWM(0x42, debug=False) )
 
-pwm.setPWMFreq(60)                        # Set frequency to 60 Hz
+theta = []
+for i in range(0, 43):
+	theta.append ( (i/43.0) * TWO_PI )
 
-# for i in range(0, 9):
-# 	channel = channels[i]
-# 	pwm.setPWM(channel, 0, servoMin)
+for i in range(0, 3):
+	pwm[i].setPWMFreq(60)                        # Set frequency to 60 Hz
+
 
 while(True):
-	for i in range(1, 2):
-		channel = channels[i]
-		for i in range(servoMin, servoMax, 2):
-			pwm.setPWM(channel, 0, i)
-		for i in reversed(range(servoMin, servoMax, 2)):
-			pwm.setPWM(channel, 0, i)
+	for i in range(0, 43):
+		p = int( i / 16.0 )
+		channel = int(i % 16)
+		value =  ofMap(math.cos(theta[i]), -1, 1, servoMin, servoMax, True)
+		theta[i] += 0.5
+		#print "hat %d channel %d value = %s" % (p, channel, value)
+		pwm[p].setPWM(channel, 0, int(value))
 
 
-# while (True):
-# 	for i in range(0, 9):
-# 		channel = channels[i]
-
-# 		print "%d servoMin" % channel
-# 		# Change speed of continuous servo on channel O
-# 		pwm.setPWM(channel, 0, servoMin + offsets[i])
-# 		time.sleep(0.2)
-# 		print "%d servoMax" % channel
-# 		pwm.setPWM(channel, 0, servoMax + offsets[i])
-# 		time.sleep(0.1)
+		
 
 
+# while(True):
+# 	for i in range(0,3):
+# 		for channel in range(0, 16):
+# 			for pulse in range(servoMin, servoMax, 2):
+# 				pwm[i].setPWM(channel, 0, pulse)
+# 			for pulse in reversed(range(servoMin, servoMax, 2)):
+# 				pwm[i].setPWM(channel, 0, pulse)
 
