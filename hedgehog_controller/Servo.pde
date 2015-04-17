@@ -1,7 +1,7 @@
 
 
 int[] channel_map = new int[] {
-  0, 1, 2, 3, 4, 5, 6, 7, 12, 
+  0, 1, 2, 3, 4, 5, 6, 7, 12,
 };
 float[] offset_map = new float[] {
   0, 0, 0, 0, 0, .28, 0, -0.1, 0
@@ -10,70 +10,84 @@ float[] offset_map = new float[] {
 class Servo {
 
   public float diameter = 130;
-  public float angle;
-  public float radius;
-  public PVector pos = new PVector();
+  public float theta;
+  public float r;
+  public PVector center = new PVector();
   public int id;
   private float offset;
   public int channel;
   public float value;
   private float lastValueSent;
-  private float seed;
   private String label;
 
-
-
-  Servo(float angle, float radius, int id) {
-    pos.x = cos(radians(angle)) * radius;
-    pos.y = sin(radians(angle)) * radius;
-    
+  private float seed;
+  
+  
+  // -------------------------------------------
+  Servo(float theta, float r, int id) {
+    this.r = r;
+    this.theta = theta;
     this.id = id;
+
+    this.center.x = cos(theta) * r;
+    this.center.y = sin(theta) * r;
+
     this.channel = (id<channel_map.length) ? channel_map[id] : -1;
     this.offset = (id<offset_map.length) ? offset_map[id] : -1;
     this.value = 0;
     this.lastValueSent = -1;
-    //this.mappedValue = map(this.value, 0, 1, oscMin, oscMax);
-    this.seed = random(0, PI);
-    
+
+    this.seed = random(TWO_PI);
+
     label = id + ":" + channel;
   }
 
+  // -------------------------------------------
   void update(float deltaTime) {
-    // tmp start
-    seed += deltaTime;
-    value = 0.5 + cos(seed) * 0.5;
-    // tmp end
+    
+    this.seed += deltaTime;
+    if(autoServo) {
+      value = 0.5 * cos(seed) + 0.5;
+    }
+    
+    value = constrain(value, 0, 1);
+    if (value>0) {
+      value -= deltaTime;
+    }
 
-    value += offset;
-    value = map(value, 0, 1, oscMin, oscMax);
+    float valueAdjusted = value + offset;
+    valueAdjusted = constrain(valueAdjusted, 0, 1);
+    valueAdjusted = map(valueAdjusted, 0, 1, oscMin, oscMax);
 
-    if (abs(value-lastValueSent)>0.005 && channel!=-1) 
+    // TO DO: Also limit how frequently a single servo is sent.
+    if (abs(valueAdjusted-lastValueSent)>0.005 && channel != -1) 
     {
       OscMessage msg = new OscMessage("/pwm");
       msg.add( channel );
-      msg.add( value );
+      msg.add( valueAdjusted );
       //println("channel", channel, " value", value);
       oscP5.send(msg, pi);
-      lastValueSent = value;
+      lastValueSent = valueAdjusted;
     }
   }
 
+  // -------------------------------------------
   void draw() {
 
-    stroke(204, 102, 0);
-    float c = map(value, 0, 1, 255, 0);
-    if(c > 255 || c < 0) {
+    float c = map(value, 0, 1, 0, 255);
+    if (c > 255 || c < 0) {
       // make it red -- warning! our of range!
     }
     fill(c);
-
-    ellipse(pos.x, pos.y, diameter, diameter);
+    stroke(204, 102, 0);
+    strokeWeight(4);
+    ellipse(center.x, center.y, diameter, diameter);
 
     noStroke();
     fill(255-c);
     textSize(18);
-   
-    text(label, pos.x-20, pos.y+10);
+
+    text(label, center.x-20, center.y+10);
   }
 }
 
