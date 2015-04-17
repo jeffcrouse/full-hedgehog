@@ -38,14 +38,14 @@ while(True):
 		for x in range(servoMin, servoMax):
 			for i in range(0, 9):
 				channel = channels[i]
-				print "channel %s=%s" % (channel, x)
+				#print "channel %s=%s" % (channel, x)
 				pwm.setPWM(channel, 0, x)
 			time.sleep(0.005)
 
 		for x in reversed(range(servoMin, servoMax)):
 			for i in range(0, 9):
 				channel = channels[i]
-				print "channel %s=%s" % (channel, x)
+				#print "channel %s=%s" % (channel, x)
 				pwm.setPWM(channel, 0, x)
 			time.sleep(0.005)
 

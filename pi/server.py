@@ -8,25 +8,27 @@ receive_address = 'hedgehog.local', 7000
 s = OSC.OSCServer(receive_address)
 s.addDefaultHandlers()
 
-# Initialise the PWM device using the default address
-pwm = PWM(0x40, debug=False)
-pwm.setPWMFreq(60)                        # Set frequency to 60 Hz
+# Initialise the PWM devices
+pwm = []
+pwm.append( PWM(0x40, debug=False) )
+pwm.append( PWM(0x41, debug=False) )
+pwm.append( PWM(0x42, debug=False) )
 
+for i in range(0, 3):
+	pwm[i].setPWMFreq(60)     # Set frequency to 60 Hz
 
 
 servoMin = 380  # Min pulse length out of 4096
 servoMax = 520  # Max pulse length out of 4096
 def pwm_handler(addr, tags, stuff, source):
-	channel = stuff[0]
-	value = ofMap(stuff[1], 0, 1, servoMin, servoMax, True)
-	# print "---"
-	# print "received new osc msg from %s" % OSC.getUrlStr(source)
-	# print "with addr : %s" % addr
-	# print "typetags %s" % tags
-	# #print "data %s" % stuff
-	#print "channel %s=%s" % (channel, value)
-	# print "---"
-	pwm.setPWM(channel, 0, int(value))
+	i = stuff[0] # channel from OSC
+	v = stuff[1] # value for channel
+
+	p = int( i / 16.0 )
+	channel = int(i % 16)
+	value = ofMap(v, 0.0, 1.0, servoMin, servoMax, True)
+	pwm[p].setPWM(channel, 0, int(value))
+
 
 s.addMsgHandler("/pwm", pwm_handler)
 
