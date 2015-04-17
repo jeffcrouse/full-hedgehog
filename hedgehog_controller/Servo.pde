@@ -32,8 +32,8 @@ class Servo {
     this.center.x = cos(theta) * r;
     this.center.y = sin(theta) * r;
 
-    this.channel = (id<channel_map.length) ? channel_map[id] : -1;
-    this.offset = (id<offset_map.length) ? offset_map[id] : -1;
+    this.channel = (id<channel_map.length) ? channel_map[id] : id;
+    this.offset = (id<offset_map.length) ? offset_map[id] : 0;
     this.value = 0;
     this.lastValueSent = -1;
 
