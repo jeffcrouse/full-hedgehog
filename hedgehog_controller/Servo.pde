@@ -1,8 +1,5 @@
 
 
-int[] channel_map = new int[] {
-};
-
 class Servo {
 
   public float diameter = 130;
@@ -11,7 +8,6 @@ class Servo {
   public PVector center = new PVector();
   public int id;
   private float offset;
-  public int channel;
   public float value;
   private float lastValueSent;
   private String label;
@@ -28,13 +24,12 @@ class Servo {
     this.center.x = cos(theta) * r;
     this.center.y = sin(theta) * r;
 
-    this.channel = (id<channel_map.length) ? channel_map[id] : id;
     this.value = 0;
     this.lastValueSent = -1;
 
     this.seed = random(TWO_PI);
 
-    label = id + ":" + channel;
+    label = id+"";
   }
 
   // -------------------------------------------
@@ -45,28 +40,11 @@ class Servo {
       value = 0.5 * cos(seed) + 0.5;
     }
 
-
-    value *= levelMultiplier;
-
-    value = constrain(value, 0, 1);
-    if (value>0) {
-      value -= deltaTime * fadeSpeed;
-    }
-
-    
-    float valueAdjusted = value;
-    valueAdjusted = map(valueAdjusted, 0, 1, oscMin, oscMax);
-    
-
-    // TO DO: Also limit how frequently a single servo is sent.
-    if (abs(valueAdjusted-lastValueSent)>0.05 && channel != -1) 
-    {
-      OscMessage msg = new OscMessage("/pwm");
-      msg.add( channel );
-      msg.add( valueAdjusted );
-      //println("channel", channel, " value", value);
-      oscP5.send(msg, pi);
-      lastValueSent = valueAdjusted;
+    if (idleMode) {
+      value = constrain(value, 0, 1);
+      if (value>0) {
+        value -= deltaTime * fadeSpeed;
+      }
     }
   }
 

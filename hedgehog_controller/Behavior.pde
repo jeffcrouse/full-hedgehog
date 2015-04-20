@@ -69,12 +69,12 @@ public class Ripples extends Behavior {
   private PVector center = new PVector(); // the cartesian coordinates of the center of the ripples
   private ArrayList<Float> ripples = new ArrayList<Float>(); // The radii of the ripples
   private float ring_width = 100; // The width of the effect of each ripple
-  private float speed = 800;  // how fast the ripples move
+  private float speed = 400;  // how fast the ripples move
   private float strength = 10;  // how much effect they have on the servos as they pass by
   private float lastRipple = -10;    // When did the last ripple occur?
   private float removeAt = 700;  // At what radius should we remove a ripple?
   private int n = 0;  // How many ripples have been destroyed?
-  private float rippleDelay = 1.5; // how many seconds between ripples?
+  private float rippleDelay = 1; // how many seconds between ripples?
 
 
 
@@ -135,7 +135,7 @@ public class Ripples extends Behavior {
       }
     }
   }
-  
+
   // ------------------------------------
   float pct() {
     float sum = (n*removeAt);
@@ -157,7 +157,7 @@ public class RadialWipe extends Behavior {
 
   private float theta = 0;                // The current angle of the wand
   private float wipe_width = PI/4.0;      // The width of the area of effect (as angle)
-  private float speed = 4;                  // How fast does the wand spin around?
+  private float speed = 2;                  // How fast does the wand spin around?
   private float strength = 10.0;          // How much effect does the wand have on the servos
   private float maxTheta = TWO_PI * 3.0;  // When does it stop?
 
@@ -189,7 +189,8 @@ public class RadialWipe extends Behavior {
 
     float maxEffect = deltaTime * strength;
 
-    for (int i=0; i<servos.length; i++) {
+    servos[0].value = oscMax;
+    for (int i=1; i<servos.length; i++) {
 
       float angle = abs(servos[i].theta - (this.theta%TWO_PI));
       if (angle > PI) 
@@ -200,8 +201,6 @@ public class RadialWipe extends Behavior {
 
       servos[i].value += effect;
     }
-
-    servos[0].value = oscMax;
   }
 
   // ---------------------------------------
@@ -218,7 +217,7 @@ public class RadialWipe extends Behavior {
 public class Wipe extends Behavior {
 
   private float wipe_width = 100;
-  private float speed = 0.3;  // The speed at which the wipe moves across the screen (normalized)
+  private float speed = 0.15;  // The speed at which the wipe moves across the screen (normalized)
   private float posNorm;          // The progress of the wipe (normalized)
   private float posActual;         // the actual x position (calculated)
   private float strength = 10.0;
@@ -226,8 +225,8 @@ public class Wipe extends Behavior {
   private float end = 600;
 
   private boolean x_axis;
-  
-  
+
+
   // ---------------------------------------
   Wipe(boolean EastWest, boolean NorthSouth) {
     super();
@@ -345,16 +344,16 @@ public class Spiral extends Behavior {
  **************************************/
 public class Undulate extends Behavior {
 
-  
-  private float strength = 5.0;  // How much effect does this behavior have on the Servos?
+
+  private float strength = 15.0;  // How much effect does this behavior have on the Servos?
   float[] thetas;
-  float speed = 1.4;
+  float speed = 3;
 
   // ---------------------------------------
   Undulate() {
     super();
     thetas = new float[servos.length];
-    for(int i=0; i<thetas.length; i++) {
+    for (int i=0; i<thetas.length; i++) {
       thetas[i] = sin( (i/(float)thetas.length) * (TWO_PI*2) );
     }
   }
@@ -366,15 +365,14 @@ public class Undulate extends Behavior {
 
   // ---------------------------------------
   void update(float deltaTime) {
-   
-    float maxEffect = deltaTime * strength;
-    
-    for (int i=0; i<servos.length; i++) {
-      
-      float effect = map(sin(thetas[i]), -1, 1, 0, maxEffect);
-      effect = constrain(effect, 0, maxEffect);
 
-      servos[i].value += effect;
+    for (int i=0; i<servos.length; i++) {
+
+      float effect = map(sin(thetas[i]), -1, 1, 0, 1);
+      effect *= levelSmoothed;
+
+      servos[i].value =  constrain(effect, 0, 1);
+
       thetas[i] += deltaTime * this.speed;
     }
   }
@@ -391,3 +389,4 @@ public class Undulate extends Behavior {
     return age() / 5.0;
   }
 }
+
