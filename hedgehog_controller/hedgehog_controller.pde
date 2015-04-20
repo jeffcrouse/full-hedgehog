@@ -26,6 +26,9 @@ ArrayList<Behavior> behaviors = new ArrayList<Behavior>();
 boolean autoServo = false;
 float oscMin = 0;
 float oscMax = 1;
+float levelMin = 0;
+float levelMax = 1;
+float levelMultiplier;
 float speed;
 float pitch, pitchSmoothed;
 float level, levelMovingAgerage = 0;
@@ -42,23 +45,35 @@ void setup() {
 
 
   // Setup ControlP5
+  int y = 50;
   cp5 = new ControlP5(this);
   cp5.addRange("OSC value range")
-    .setPosition(20, 50)
+    .setPosition(20, y)
       .setSize(400, 40)
         .setHandleSize(20)
           .setRange(0, 1)
             .setRangeValues(0, 1)
               ;
 
+  y += 50;
+  cp5.addRange("mic level range")
+    .setPosition(20, y)
+      .setSize(400, 40)
+        .setHandleSize(20)
+          .setRange(0, 1)
+            .setRangeValues(0, 1)
+              ;
+
+  y += 50;
   cp5.addSlider("speed")
-    .setPosition(20, 100)
+    .setPosition(20, y)
       .setSize(400, 40)
         .setRange(0, 11.0)
           ;
 
+  y += 50;
   cp5.addSlider("fadeSpeed")
-    .setPosition(20, 150)
+    .setPosition(20, y)
       .setSize(400, 40)
         .setRange(1.0, 5.0)
           ;
@@ -130,7 +145,7 @@ void updateAudio(float deltaTime) {
 
   // Calculate the moving average of the last 30 samples
   levels.add( level );
-  if (levels.size() > 120) {
+  if (levels.size() > 30) {
     levels.remove(0);
   }
   float sum = 0;
@@ -139,7 +154,9 @@ void updateAudio(float deltaTime) {
   }
   levelMovingAgerage = sum / (float)levels.size();
 
-
+  levelMultiplier = map(levelMovingAgerage, levelMin, levelMax, 0, 1);
+  levelMultiplier = constrain(levelMultiplier, 0, 1);
+  
   // Do onset calculation
   if (onsetCounter > 0) {
     onsetCounter -= deltaTime;
@@ -181,8 +198,8 @@ void pre() {
 
   boolean noBehaviors = behaviors.size()<1;
   boolean lastBehaviorAlmostDone = !noBehaviors && behaviors.size() < 2 && behaviors.get(0).pct() > 0.9;
-  
-  if(noBehaviors || lastBehaviorAlmostDone) {
+
+  if (noBehaviors || lastBehaviorAlmostDone) {
     addRandomBehavior();
   }
 
@@ -197,7 +214,7 @@ void addRandomBehavior() {
   switch(n) {
   case 0:
     float r = random(TWO_PI);
-    float theta = random(300);
+    float theta = random(100);
     behaviors.add(new Ripples(r, theta));
     break;
   case 1:
@@ -306,11 +323,18 @@ void controlEvent(ControlEvent theControlEvent) {
 
     oscMin = theControlEvent.getController().getArrayValue(0);
     oscMax = theControlEvent.getController().getArrayValue(1);
+  } else if (theControlEvent.isFrom("mic level range")) {
 
-    println("min", oscMin, "max", oscMax);
+    levelMin = theControlEvent.getController().getArrayValue(0);
+    levelMax = theControlEvent.getController().getArrayValue(1);
+
+
+    
   } else if (theControlEvent.isFrom("speed")) {
+
     speed = theControlEvent.getController().getValue();
   } else if (theControlEvent.isFrom("fadeSpeed")) {
+
     fadeSpeed = theControlEvent.getController().getValue();
   }
 }

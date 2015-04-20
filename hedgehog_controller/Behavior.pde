@@ -346,7 +346,7 @@ public class Spiral extends Behavior {
 public class Undulate extends Behavior {
 
   
-  private float strength = 3.0;  // How much effect does this behavior have on the Servos?
+  private float strength = 5.0;  // How much effect does this behavior have on the Servos?
   float[] thetas;
   float speed = 1.4;
 

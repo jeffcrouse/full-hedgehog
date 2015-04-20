@@ -45,14 +45,18 @@ class Servo {
       value = 0.5 * cos(seed) + 0.5;
     }
 
+
+    value *= levelMultiplier;
+
     value = constrain(value, 0, 1);
     if (value>0) {
       value -= deltaTime * fadeSpeed;
     }
 
+    
     float valueAdjusted = value;
-    valueAdjusted = constrain(valueAdjusted, 0, 1);
     valueAdjusted = map(valueAdjusted, 0, 1, oscMin, oscMax);
+    
 
     // TO DO: Also limit how frequently a single servo is sent.
     if (abs(valueAdjusted-lastValueSent)>0.05 && channel != -1) 
