@@ -1,10 +1,6 @@
 
 
 int[] channel_map = new int[] {
-  0, 1, 2, 3, 4, 5, 6, 7, 12,
-};
-float[] offset_map = new float[] {
-  0, 0, 0, 0, 0, .28, 0, -0.1, 0
 };
 
 class Servo {
@@ -21,8 +17,8 @@ class Servo {
   private String label;
 
   private float seed;
-  
-  
+
+
   // -------------------------------------------
   Servo(float theta, float r, int id) {
     this.r = r;
@@ -33,7 +29,6 @@ class Servo {
     this.center.y = sin(theta) * r;
 
     this.channel = (id<channel_map.length) ? channel_map[id] : id;
-    this.offset = (id<offset_map.length) ? offset_map[id] : 0;
     this.value = 0;
     this.lastValueSent = -1;
 
@@ -44,23 +39,23 @@ class Servo {
 
   // -------------------------------------------
   void update(float deltaTime) {
-    
+
     this.seed += deltaTime;
-    if(autoServo) {
+    if (autoServo) {
       value = 0.5 * cos(seed) + 0.5;
     }
-    
+
     value = constrain(value, 0, 1);
     if (value>0) {
-      value -= deltaTime;
+      value -= deltaTime * fadeSpeed;
     }
 
-    float valueAdjusted = value + offset;
+    float valueAdjusted = value;
     valueAdjusted = constrain(valueAdjusted, 0, 1);
     valueAdjusted = map(valueAdjusted, 0, 1, oscMin, oscMax);
 
     // TO DO: Also limit how frequently a single servo is sent.
-    if (abs(valueAdjusted-lastValueSent)>0.005 && channel != -1) 
+    if (abs(valueAdjusted-lastValueSent)>0.05 && channel != -1) 
     {
       OscMessage msg = new OscMessage("/pwm");
       msg.add( channel );
