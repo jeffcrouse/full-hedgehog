@@ -2,6 +2,7 @@
 // 1. Optimize OSC sending - send all updates in 1 message
 // 2. Audio events
 // 3. Onset detection
+// 4. Sound input is only mono - no reason to caluclate both channels
 
 
 import controlP5.*;
@@ -12,24 +13,26 @@ import ddf.minim.*;
 
 OscP5 oscP5;
 NetAddress pi;
-Servo[] servos = new Servo[43];
-int lastFrameTime = 0;
 ControlP5 cp5;
+Minim minim;
+AudioInput mic;
+PitchDetector pitchdetect;   
+
+
+Servo[] servos = new Servo[43];
+ArrayList<Behavior> behaviors = new ArrayList<Behavior>();
+
 
 boolean autoServo = false;
 float oscMin = 0;
 float oscMax = 1;
 float speed;
-Minim minim;
-AudioInput mic;
-float levelLeft = 0;
-float levelRight = 0;
+float pitch, pitchSmoothed;
 float level, levelMovingAgerage = 0;
 ArrayList<Float> levels = new ArrayList<Float>();
-ArrayList<Behavior> behaviors = new ArrayList<Behavior>();
 float onsetCounter = 0;
-float onsetRecoveryPeriod = 3;
-
+float onsetRecoveryPeriod = 4;
+float fadeSpeed = 2.0;
 
 // ------------------------------------------------------------
 void setup() {
@@ -54,6 +57,12 @@ void setup() {
         .setRange(0, 11.0)
           ;
 
+  cp5.addSlider("fadeSpeed")
+    .setPosition(20, 150)
+      .setSize(400, 40)
+        .setRange(1.0, 5.0)
+          ;
+
   cp5.loadProperties("hedgehog.properties");
 
 
@@ -64,9 +73,12 @@ void setup() {
 
   // Setup Audio stuff
   minim = new Minim(this);
-  mic = minim.getLineIn(Minim.MONO, 512);
+  mic = minim.getLineIn(Minim.MONO, 512, 44100);
+  pitchdetect = new PitchDetector(); 
+  mic.addEffect(pitchdetect); 
 
 
+  // Setup Servos!
   setupServos();
 }
 
@@ -100,7 +112,6 @@ void setupServos() {
   }
 
 
-
   // third ring 20 wagglers (24-42) 
   angle = 0;
   ring_radius = 425;
@@ -115,28 +126,14 @@ void setupServos() {
 // ------------------------------------------------------------
 void updateAudio(float deltaTime) {
 
-  // calculate the left and right channels
-  float sum=0;
-  for (int i = 0; i < mic.bufferSize () - 1; i++) {
-    sum += abs(mic.right.get(i));
-  }
-  levelRight = sum / mic.bufferSize();
-
-  sum=0;
-  for (int i = 0; i < mic.bufferSize () - 1; i++) {
-    sum += abs(mic.left.get(i));
-  }
-  levelLeft = sum / mic.bufferSize();
-
-  // Average level
-  level = (levelLeft+levelRight)/2.0;
+  level = pitchdetect.getAmplitude();
 
   // Calculate the moving average of the last 30 samples
   levels.add( level );
   if (levels.size() > 120) {
     levels.remove(0);
   }
-  sum = 0;
+  float sum = 0;
   for (int i=0; i<levels.size (); i++) {
     sum += levels.get(i);
   }
@@ -149,62 +146,79 @@ void updateAudio(float deltaTime) {
   }
 
   float louder = level - levelMovingAgerage;
-  float thresh = level * 0.8;
+  float thresh = level * 1.5;
   if (louder > thresh && onsetCounter < 0.01) {
     onOnset();
     onsetCounter = onsetRecoveryPeriod;
   }
+
+  pitch = map(pitchdetect.getPitch(), 100, 900, 0, 1);
+  pitchSmoothed += (pitch-pitchSmoothed)/10.0;
 }
 
 // ------------------------------------------------------------
 void onOnset() {
-  int n = (int)random(4);
-  switch(n) {
-  case 0:
-    float r = random(TWO_PI);
-    float theta = random(300);
-    behaviors.add(new Shockwave(r, theta));
-    break;
-  case 1:
-    behaviors.add(new RadialWipe());
-    break;
-  case 2:
-    behaviors.add( new HorizontalWipe() );
-    break;
-  case 3:
-    behaviors.add( new Spiral() );
-    break;
-  }
 }
 
 
 // ------------------------------------------------------------
+int lastFrameTime = 0;
 void pre() {
+
   int now = millis();
   float deltaTime = (now-lastFrameTime)/1000.0;
   lastFrameTime = now;
 
   updateAudio(deltaTime);
 
+
   for (int i = behaviors.size () - 1; i >= 0; i--) {
     Behavior b = behaviors.get(i);
     b.update(deltaTime * speed);
-    if (b.finished()) {
+    if (b.pct() >= 1.0) {
       behaviors.remove(i);
     }
   }
+
+  //  boolean noBehaviors = behaviors.size()==0;
+  //  boolean readyForNewBehavior = behaviors.size() > 0 && behaviors.size() < 2 && behaviors.get(0).pct() > 0.9;
+  //  if(noBehaviors || readyForNewBehavior) {
+  //    addRandomBehavior();
+  //  }
 
   for (int i=0; i<servos.length; i++) {
     servos[i].update(deltaTime * speed);
   }
 }
 
+// ------------------------------------------------------------
+void addRandomBehavior() {
+  int n = (int)random(5);
+  switch(n) {
+  case 0:
+    float r = random(TWO_PI);
+    float theta = random(300);
+    behaviors.add(new Ripples(r, theta));
+    break;
+  case 1:
+    behaviors.add(new RadialWipe());
+    break;
+  case 2:
+    boolean NorthSouth = random(10)>5;
+    boolean EastWest = random(10)>5;
+    behaviors.add( new Wipe(NorthSouth, EastWest) );
+    break;
+  case 3:
+    behaviors.add( new Undulate() );
+    break;
+  }
+}
 
 // ------------------------------------------------------------
 void draw() {
 
   float b = map(onsetCounter, 0, onsetRecoveryPeriod, 0, 255);
-  background(b);
+  background(50);
 
   pushMatrix();
   translate(width-300, 20);
@@ -239,8 +253,9 @@ void draw() {
 
 
 // ------------------------------------------------------------
+// draw the waveforms so we can see what we are monitoring
 void drawAudioPreview() {
-  // draw the waveforms so we can see what we are monitoring
+  noStroke();
   strokeWeight(1);
 
   float x1, y1, x2, y2;
@@ -248,11 +263,19 @@ void drawAudioPreview() {
   pushMatrix();
   translate(0, height-150);
 
-  noStroke();
+
   fill(255);
-  rect(0, 0, map(levelLeft, 0, 1, 0, width), 10);
-  rect(0, 20, map(levelMovingAgerage, 0, 1, 0, width), 20);
-  rect(0, 50, map(levelRight, 0, 1, 0, width), 10);
+  text("level", 10, 0);
+  rect(0, 15, map(level, 0, 1, 0, width), 20);
+  fill(100);
+  rect(0, 20, map(levelMovingAgerage, 0, 1, 0, width), 10);
+
+  fill(255);
+  text("pitch", 10, 60);
+  rect(0, 65, map(pitch, 0, 1, 0, width), 20);
+  fill(100);
+  rect(0, 70, map(pitchSmoothed, 0, 1, 0, width), 10);
+
 
 
   stroke(100, 200, 150);
@@ -273,7 +296,6 @@ void drawAudioPreview() {
     y2 = mic.right.get(i+1) * h;
     line( x1, y1, x2, y2 );
   }
-  noStroke();
 
   popMatrix();
 }
@@ -286,10 +308,10 @@ void controlEvent(ControlEvent theControlEvent) {
     oscMax = theControlEvent.getController().getArrayValue(1);
 
     println("min", oscMin, "max", oscMax);
-  }
-
-  if (theControlEvent.isFrom("speed")) {
+  } else if (theControlEvent.isFrom("speed")) {
     speed = theControlEvent.getController().getValue();
+  } else if (theControlEvent.isFrom("fadeSpeed")) {
+    fadeSpeed = theControlEvent.getController().getValue();
   }
 }
 
@@ -307,15 +329,19 @@ void keyPressed() {
   } else if (key=='l') {
     cp5.loadProperties("hedgehog.properties");
   } else if (key == '1') {
-    float r = random(TWO_PI);
-    float theta = random(300);
-    behaviors.add(new Shockwave(r, theta));
+    float r = 0; //random(TWO_PI);
+    float theta = 0; //random(300);
+    behaviors.add(new Ripples(r, theta));
   } else if (key == '2') {
     behaviors.add(new RadialWipe());
   } else if ( key=='3') {
-    behaviors.add( new HorizontalWipe() );
+    boolean NorthSouth = random(10)>5;
+    boolean EastWest = random(10)>5;
+    behaviors.add( new Wipe(NorthSouth, EastWest) );
   } else if ( key=='4') {
     behaviors.add( new Spiral() );
+  } else if ( key=='5') {
+    behaviors.add( new Undulate() );
   }
 }
 
