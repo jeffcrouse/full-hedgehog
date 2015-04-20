@@ -171,7 +171,6 @@ void pre() {
 
   updateAudio(deltaTime);
 
-
   for (int i = behaviors.size () - 1; i >= 0; i--) {
     Behavior b = behaviors.get(i);
     b.update(deltaTime * speed);
@@ -180,11 +179,12 @@ void pre() {
     }
   }
 
-  //  boolean noBehaviors = behaviors.size()==0;
-  //  boolean readyForNewBehavior = behaviors.size() > 0 && behaviors.size() < 2 && behaviors.get(0).pct() > 0.9;
-  //  if(noBehaviors || readyForNewBehavior) {
-  //    addRandomBehavior();
-  //  }
+  boolean noBehaviors = behaviors.size()<1;
+  boolean lastBehaviorAlmostDone = !noBehaviors && behaviors.size() < 2 && behaviors.get(0).pct() > 0.9;
+  
+  if(noBehaviors || lastBehaviorAlmostDone) {
+    addRandomBehavior();
+  }
 
   for (int i=0; i<servos.length; i++) {
     servos[i].update(deltaTime * speed);

@@ -135,7 +135,8 @@ public class Ripples extends Behavior {
       }
     }
   }
-
+  
+  // ------------------------------------
   float pct() {
     float sum = (n*removeAt);
     for (int i=0; i<ripples.size (); i++) {
