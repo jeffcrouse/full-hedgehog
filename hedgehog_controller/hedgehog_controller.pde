@@ -63,7 +63,7 @@ void setup() {
     .setPosition(20, y)
       .setSize(400, 40)
         .setHandleSize(20)
-          .setRange(0, 1)
+          .setRange(0, 0.1)
             .setRangeValues(0, 1)
               ;
   y += 50;
@@ -156,20 +156,20 @@ void pre() {
   lastFrameTime = now;
 
   // Calculate level variables
-  level = pitchdetect.getAmplitude() * amplify;
-  levelSmoothed += (level-levelSmoothed) / audioSmoothing;
+  level = pitchdetect.getAmplitude();
 
-  if (levelSmoothed < micRangeMin) {
+  if (level < micRangeMin) {
     levelAdjusted = 0;
-  } else if (levelSmoothed > micRangeMin && levelSmoothed < micRangeMax) {
-    levelAdjusted = map(levelSmoothed, micRangeMin, micRangeMax, 0, 1);
+  } else if (level > micRangeMin && level < micRangeMax) {
+    levelAdjusted = map(level, micRangeMin, micRangeMax, 0, 1);
   } else {
     levelAdjusted = 1;
   }
 
+  levelSmoothed += (levelAdjusted-levelSmoothed) / audioSmoothing;
 
   // Have we heard any audio?
-  if (levelAdjusted > 0) {
+  if (levelSmoothed > 0) {
     lastAudioInput = now;
   }
   float elapsed = now - lastAudioInput;
@@ -186,15 +186,16 @@ void pre() {
     undulate.update(deltaTime);
   }
 
+  for (int i =0; i <  servos.length; i++) {
+    servos[i].update(deltaTime);
+  }
+
   for (int i = behaviors.size () - 1; i >= 0; i--) {
     Behavior b = behaviors.get(i);
     b.update(deltaTime);
     if (b.pct() >= 1.0) {
       behaviors.remove(i);
     }
-  }
-  for (int i =0; i <  servos.length; i++) {
-    servos[i].update(deltaTime);
   }
 
   if ( now - oscLastSend > oscSendPeriod ) {
@@ -353,9 +354,9 @@ void drawAudioPreview() {
   text("level", 10, 0);
   rect(0, 20, map(level, 0, 1, 0, width), 20);
   fill(150);
-  rect(0, 40, map(levelSmoothed, 0, 1, 0, width), 20);
+  rect(0, 40, map(levelAdjusted, 0, 1, 0, width), 20);
   fill(0);
-  rect(0, 60, map(levelAdjusted, 0, 1, 0, width), 20);
+  rect(0, 60, map(levelSmoothed, 0, 1, 0, width), 20);
 
   stroke(100, 200, 150);
   for (int i = 0; i < mic.bufferSize () - 1; i++)

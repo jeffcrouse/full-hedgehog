@@ -40,11 +40,10 @@ class Servo {
       value = 0.5 * cos(seed) + 0.5;
     }
 
-    if (idleMode) {
-      value = constrain(value, 0, 1);
-      if (value>0) {
-        value -= deltaTime * fadeSpeed;
-      }
+
+    value = constrain(value, 0, 1);
+    if (value>0) {
+      value -= deltaTime * fadeSpeed;
     }
   }
 

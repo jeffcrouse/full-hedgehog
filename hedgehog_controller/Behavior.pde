@@ -69,12 +69,12 @@ public class Ripples extends Behavior {
   private PVector center = new PVector(); // the cartesian coordinates of the center of the ripples
   private ArrayList<Float> ripples = new ArrayList<Float>(); // The radii of the ripples
   private float ring_width = 100; // The width of the effect of each ripple
-  private float speed = 400;  // how fast the ripples move
-  private float strength = 10;  // how much effect they have on the servos as they pass by
+  private float speed = 100;  // how fast the ripples move
+  private float strength = 5;  // how much effect they have on the servos as they pass by
   private float lastRipple = -10;    // When did the last ripple occur?
-  private float removeAt = 700;  // At what radius should we remove a ripple?
+  private float removeAt = 1000;  // At what radius should we remove a ripple?
   private int n = 0;  // How many ripples have been destroyed?
-  private float rippleDelay = 1; // how many seconds between ripples?
+  private float rippleDelay = 3; // how many seconds between ripples?
 
 
 
@@ -156,9 +156,9 @@ public class Ripples extends Behavior {
 public class RadialWipe extends Behavior {
 
   private float theta = 0;                // The current angle of the wand
-  private float wipe_width = PI/4.0;      // The width of the area of effect (as angle)
+  private float wipe_width = PI/2.0;      // The width of the area of effect (as angle)
   private float speed = 2;                  // How fast does the wand spin around?
-  private float strength = 10.0;          // How much effect does the wand have on the servos
+  private float strength = 5.0;          // How much effect does the wand have on the servos
   private float maxTheta = TWO_PI * 3.0;  // When does it stop?
 
   // ---------------------------------------
@@ -216,11 +216,11 @@ public class RadialWipe extends Behavior {
  **************************************/
 public class Wipe extends Behavior {
 
-  private float wipe_width = 100;
+  private float wipe_width = 200;
   private float speed = 0.15;  // The speed at which the wipe moves across the screen (normalized)
   private float posNorm;          // The progress of the wipe (normalized)
   private float posActual;         // the actual x position (calculated)
-  private float strength = 10.0;
+  private float strength = 5.0;
   private float start = -600;
   private float end = 600;
 
