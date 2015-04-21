@@ -1,20 +1,28 @@
 #!/usr/bin/python
 
 from Adafruit_PWM_Servo_Driver import PWM
-import time, threading, OSC
+import math, OSC
 from ofMap import ofMap
+from threading import Thread
+from time import sleep
 
 receive_address = 'hedgehog.local', 7000
 s = OSC.OSCServer(receive_address)
 s.addDefaultHandlers()
 
-# Initialise the PWM devices
+TWO_PI = math.pi * 2
+servoMin = 380  # Min pulse length out of 4096
+servoMax = 500  # Max pulse length out of 4096
+servoRange = servoMax - servoMin
+
 pwm = []
 pwm.append( PWM(0x40, debug=False) )
 pwm.append( PWM(0x41, debug=False) )
 pwm.append( PWM(0x42, debug=False) )
 
-calibration = {
+level = 0.001
+
+offsets = {
 	0: 0.3, 	1: 0.06, 	2: 0.22, 	3: 0.1, 
 	4: 0.05, 	5: 0.05, 	6: 0.17, 	7: 0.15, 
 	8: 0.05, 	9: 0.27, 	10: 0, 		11: 0.27, 
@@ -27,36 +35,22 @@ calibration = {
 	36: 0, 		37: -0.08, 	38: 0, 		39: 0, 
 	40: 0.1, 	41: -0.05, 	42: 0}
 
-values = {}
+theta = []
+for i in range(0, 43):
+	theta.append ( (i/43.0) * TWO_PI )
 
 for i in range(0, 3):
-	pwm[i].setPWMFreq(60)     # Set frequency to 60 Hz
+	pwm[i].setPWMFreq(60)                        # Set frequency to 60 Hz
 
 
-servoMin = 380  # Min pulse length out of 4096
-servoMax = 500  # Max pulse length out of 4096
-servoRange = servoMax - servoMin
+def level_handler(addr, tags, stuff, source):
+	global level
+	level = stuff[0]
+	if(level==0) :
+		level = 0.001
 
-def pwm_handler(addr, tags, stuff, source):
-	for i in range(0, len(stuff)):
 
-		v = stuff[i] # value for channel
-		p = int( i / 16.0 )
-		channel = int(i % 16)
-
-		value = ofMap(v, 0.0, 1.0, servoMin, servoMax, True)
-
-		if i in calibration: 
-			value += (servoRange * calibration[i])
-
-		if i not in values:
-			values.update({i: servoMin})
-
-		pwm[p].setPWM(channel, 0, int(value))
-
-		values[i] = value
-	
-s.addMsgHandler("/pwm", pwm_handler)
+s.addMsgHandler("/level", level_handler)
 
 
 # just checking which handlers we have added
@@ -67,13 +61,28 @@ for addr in s.getOSCAddressSpace():
 
 # Start OSCServer
 print "\nStarting OSCServer. Use ctrl-C to quit."
-st = threading.Thread( target = s.serve_forever )
+st = Thread( target = s.serve_forever )
 st.start()
- 
+
+
 # Loop while threads are running.
 try :
-	while 1 :
-		time.sleep(10)
+	while (True) :
+		frameMax = ofMap(level, 0, 1, servoMin, servoMax, True)
+		for i in range(0, 43):
+			p = int( i / 16.0 )
+			channel = int(i % 16)
+
+			value =  ofMap(math.cos(theta[i]), -1, 1, servoMin, frameMax, True)
+			
+			if i in offsets:
+				offset = servoRange * offsets[i]
+				value += offset
+
+			theta[i] += 0.2
+			#print "hat %d channel %d value = %s" % (p, channel, value)
+			pwm[p].setPWM(channel, 0, int(value))
+		sleep(1/60.0)
  
 except KeyboardInterrupt :
 	print "\nClosing OSCServer."
@@ -81,5 +90,4 @@ except KeyboardInterrupt :
 	print "Waiting for Server-thread to finish"
 	st.join()
 	print "Done"
-
 

@@ -6,7 +6,7 @@ from ofMap import ofMap
 
 TWO_PI = math.pi * 2
 servoMin = 380  # Min pulse length out of 4096
-servoMax = 500  # Max pulse length out of 4096
+servoMax = 480  # Max pulse length out of 4096
 servoRange = servoMax - servoMin
 
 pwm = []
@@ -45,19 +45,10 @@ while(True):
 			offset = servoRange * offsets[i]
 			value += offset
 
-		theta[i] += 0.15
+		theta[i] += 0.30
 		#print "hat %d channel %d value = %s" % (p, channel, value)
 		pwm[p].setPWM(channel, 0, int(value))
 
 
 		
-
-
-# while(True):
-# 	for i in range(0,3):
-# 		for channel in range(0, 16):
-# 			for pulse in range(servoMin, servoMax, 2):
-# 				pwm[i].setPWM(channel, 0, pulse)
-# 			for pulse in reversed(range(servoMin, servoMax, 2)):
-# 				pwm[i].setPWM(channel, 0, pulse)
 
