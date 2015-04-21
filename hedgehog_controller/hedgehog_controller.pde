@@ -1,8 +1,5 @@
 // TO DO
 // 1. Optimize OSC sending - send all updates in 1 message
-// 2. Audio events
-// 3. Onset detection
-// 4. Sound input is only mono - no reason to caluclate both channels
 
 
 import controlP5.*;
@@ -21,18 +18,27 @@ PitchDetector pitchdetect;
 
 Servo[] servos = new Servo[43];
 ArrayList<Behavior> behaviors = new ArrayList<Behavior>();
-
+Undulate undulate = new Undulate();
 
 boolean autoServo = false;
 float oscMin = 0;
 float oscMax = 1;
-float speed;
-float pitch, pitchSmoothed;
-float level, levelMovingAgerage = 0;
-ArrayList<Float> levels = new ArrayList<Float>();
-float onsetCounter = 0;
-float onsetRecoveryPeriod = 4;
+float oscSendPeriod = 1/20.0;
+float oscLastSend = -1;
+
+float micRangeMin = 0;
+float micRangeMax = 1;
+
+float level, levelSmoothed, levelAdjusted = 0;
 float fadeSpeed = 2.0;
+
+float amplify;
+float audioSmoothing;
+
+boolean idleMode = true;
+float idleTimeout = 10;
+float lastAudioInput = -1;
+
 
 // ------------------------------------------------------------
 void setup() {
@@ -42,28 +48,45 @@ void setup() {
 
 
   // Setup ControlP5
+  int y = 50;
   cp5 = new ControlP5(this);
   cp5.addRange("OSC value range")
-    .setPosition(20, 50)
+    .setPosition(20, y)
       .setSize(400, 40)
         .setHandleSize(20)
           .setRange(0, 1)
             .setRangeValues(0, 1)
               ;
 
-  cp5.addSlider("speed")
-    .setPosition(20, 100)
+  y += 50;
+  cp5.addRange("micRange")
+    .setPosition(20, y)
       .setSize(400, 40)
-        .setRange(0, 11.0)
-          ;
-
+        .setHandleSize(20)
+          .setRange(0, 0.1)
+            .setRangeValues(0, 1)
+              ;
+  y += 50;
   cp5.addSlider("fadeSpeed")
-    .setPosition(20, 150)
+    .setPosition(20, y)
       .setSize(400, 40)
         .setRange(1.0, 5.0)
           ;
 
-  cp5.loadProperties("hedgehog.properties");
+  y += 50;
+  cp5.addSlider("amplify")
+    .setPosition(20, y)
+      .setSize(400, 40)
+        .setRange(1.0, 10.0)
+          ;
+  y += 50;
+  cp5.addSlider("audioSmoothing")
+    .setPosition(20, y)
+      .setSize(400, 40)
+        .setRange(1.0, 20.0)
+          ;
+
+  cp5.loadProperties("controler01.properties");
 
 
   // Setup OSC stuff
@@ -123,81 +146,79 @@ void setupServos() {
 }
 
 
-// ------------------------------------------------------------
-void updateAudio(float deltaTime) {
-
-  level = pitchdetect.getAmplitude();
-
-  // Calculate the moving average of the last 30 samples
-  levels.add( level );
-  if (levels.size() > 120) {
-    levels.remove(0);
-  }
-  float sum = 0;
-  for (int i=0; i<levels.size (); i++) {
-    sum += levels.get(i);
-  }
-  levelMovingAgerage = sum / (float)levels.size();
-
-
-  // Do onset calculation
-  if (onsetCounter > 0) {
-    onsetCounter -= deltaTime;
-  }
-
-  float louder = level - levelMovingAgerage;
-  float thresh = level * 1.5;
-  if (louder > thresh && onsetCounter < 0.01) {
-    onOnset();
-    onsetCounter = onsetRecoveryPeriod;
-  }
-
-  pitch = map(pitchdetect.getPitch(), 100, 900, 0, 1);
-  pitchSmoothed += (pitch-pitchSmoothed)/10.0;
-}
 
 // ------------------------------------------------------------
-void onOnset() {
-}
-
-
-// ------------------------------------------------------------
-int lastFrameTime = 0;
+float lastFrameTime = 0;
 void pre() {
 
-  int now = millis();
-  float deltaTime = (now-lastFrameTime)/1000.0;
+  float now = millis() / 1000.0;
+  float deltaTime = now - lastFrameTime;
   lastFrameTime = now;
 
-  updateAudio(deltaTime);
+  // Calculate level variables
+  level = pitchdetect.getAmplitude();
 
+  if (level < micRangeMin) {
+    levelAdjusted = 0;
+  } else if (level > micRangeMin && level < micRangeMax) {
+    levelAdjusted = map(level, micRangeMin, micRangeMax, 0, 1);
+  } else {
+    levelAdjusted = 1;
+  }
+
+  levelSmoothed += (levelAdjusted-levelSmoothed) / audioSmoothing;
+
+  // Have we heard any audio?
+  if (levelSmoothed > 0) {
+    lastAudioInput = now;
+  }
+  float elapsed = now - lastAudioInput;
+  idleMode = elapsed > idleTimeout;
+
+  if (idleMode) {
+    boolean noBehaviors = behaviors.size()<1;
+    boolean lastBehaviorAlmostDone = !noBehaviors && behaviors.size() < 2 && behaviors.get(0).pct() > 0.85;
+
+    if (noBehaviors || lastBehaviorAlmostDone) {
+      addRandomBehavior();
+    }
+  } else {
+    undulate.update(deltaTime);
+  }
+
+  for (int i =0; i <  servos.length; i++) {
+    servos[i].update(deltaTime);
+  }
 
   for (int i = behaviors.size () - 1; i >= 0; i--) {
     Behavior b = behaviors.get(i);
-    b.update(deltaTime * speed);
+    b.update(deltaTime);
     if (b.pct() >= 1.0) {
       behaviors.remove(i);
     }
   }
 
-  //  boolean noBehaviors = behaviors.size()==0;
-  //  boolean readyForNewBehavior = behaviors.size() > 0 && behaviors.size() < 2 && behaviors.get(0).pct() > 0.9;
-  //  if(noBehaviors || readyForNewBehavior) {
-  //    addRandomBehavior();
-  //  }
+  if ( now - oscLastSend > oscSendPeriod ) {
 
-  for (int i=0; i<servos.length; i++) {
-    servos[i].update(deltaTime * speed);
+    OscMessage msg = new OscMessage("/pwm");
+
+    for (int i =0; i <  servos.length; i++) {
+
+      float value = map(servos[i].value, 0, 1, oscMin, oscMax);
+      msg.add( constrain(value, 0, 1) );
+    }
+    oscP5.send(msg, pi);
+    oscLastSend = now;
   }
 }
 
 // ------------------------------------------------------------
 void addRandomBehavior() {
-  int n = (int)random(5);
+  int n = (int)random(4);
   switch(n) {
   case 0:
     float r = random(TWO_PI);
-    float theta = random(300);
+    float theta = random(100);
     behaviors.add(new Ripples(r, theta));
     break;
   case 1:
@@ -208,17 +229,14 @@ void addRandomBehavior() {
     boolean EastWest = random(10)>5;
     behaviors.add( new Wipe(NorthSouth, EastWest) );
     break;
-  case 3:
-    behaviors.add( new Undulate() );
-    break;
   }
 }
 
 // ------------------------------------------------------------
 void draw() {
 
-  float b = map(onsetCounter, 0, onsetRecoveryPeriod, 0, 255);
-  background(50);
+  background(idleMode ? 200: 100);
+  text(frameRate, 10, 20);
 
   pushMatrix();
   translate(width-300, 20);
@@ -252,66 +270,21 @@ void draw() {
 }
 
 
-// ------------------------------------------------------------
-// draw the waveforms so we can see what we are monitoring
-void drawAudioPreview() {
-  noStroke();
-  strokeWeight(1);
-
-  float x1, y1, x2, y2;
-  float h = 100;
-  pushMatrix();
-  translate(0, height-150);
-
-
-  fill(255);
-  text("level", 10, 0);
-  rect(0, 15, map(level, 0, 1, 0, width), 20);
-  fill(100);
-  rect(0, 20, map(levelMovingAgerage, 0, 1, 0, width), 10);
-
-  fill(255);
-  text("pitch", 10, 60);
-  rect(0, 65, map(pitch, 0, 1, 0, width), 20);
-  fill(100);
-  rect(0, 70, map(pitchSmoothed, 0, 1, 0, width), 10);
-
-
-
-  stroke(100, 200, 150);
-  for (int i = 0; i < mic.bufferSize () - 1; i++)
-  {
-    x1 = map(i, 0, mic.bufferSize()-1, 0, width);
-    y1 = mic.left.get(i) * h;
-    x2 = map(i+1, 0, mic.bufferSize()-1, 0, width);
-    y2 = mic.left.get(i+1) * h;
-    line( x1, y1, x2, y2 );
-  }
-  translate(0, 100);
-  for (int i = 0; i < mic.bufferSize () - 1; i++)
-  { 
-    x1 = map(i, 0, mic.bufferSize()-1, 0, width);
-    y1 = mic.right.get(i) * h;
-    x2 = map(i+1, 0, mic.bufferSize()-1, 0, width);
-    y2 = mic.right.get(i+1) * h;
-    line( x1, y1, x2, y2 );
-  }
-
-  popMatrix();
-}
 
 // ------------------------------------------------------------
 void controlEvent(ControlEvent theControlEvent) {
   if (theControlEvent.isFrom("OSC value range")) {
-
     oscMin = theControlEvent.getController().getArrayValue(0);
     oscMax = theControlEvent.getController().getArrayValue(1);
-
-    println("min", oscMin, "max", oscMax);
-  } else if (theControlEvent.isFrom("speed")) {
-    speed = theControlEvent.getController().getValue();
+  } else if (theControlEvent.isFrom("micRange")) {
+    micRangeMin = theControlEvent.getController().getArrayValue(0);
+    micRangeMax = theControlEvent.getController().getArrayValue(1);
   } else if (theControlEvent.isFrom("fadeSpeed")) {
     fadeSpeed = theControlEvent.getController().getValue();
+  } else if (theControlEvent.isFrom("amplify")) {
+    amplify = theControlEvent.getController().getValue();
+  } else if (theControlEvent.isFrom("audioSmoothing")) {
+    audioSmoothing = theControlEvent.getController().getValue();
   }
 }
 
@@ -325,9 +298,9 @@ void keyPressed() {
   // alt+shift+l to load properties
   // alt+shift+s to save properties
   if (key=='s') {
-    cp5.saveProperties("hedgehog.properties");
+    cp5.saveProperties("controler01.properties");
   } else if (key=='l') {
-    cp5.loadProperties("hedgehog.properties");
+    cp5.loadProperties("controler01.properties");
   } else if (key == '1') {
     float r = 0; //random(TWO_PI);
     float theta = 0; //random(300);
@@ -357,10 +330,53 @@ void oscEvent(OscMessage theOscMessage) {
 
 // ------------------------------------------------------------
 void stop() {
-  cp5.saveProperties("hedgehog.properties");
+  cp5.saveProperties("controler01.properties");
 
   mic.close();
   minim.stop();
   super.stop();
+}
+
+
+// ------------------------------------------------------------
+// draw the waveforms so we can see what we are monitoring
+void drawAudioPreview() {
+  noStroke();
+  strokeWeight(1);
+
+  float x1, y1, x2, y2;
+  float h = 100;
+  pushMatrix();
+  translate(0, height-150);
+
+
+  fill(255);
+  text("level", 10, 0);
+  rect(0, 20, map(level, 0, 1, 0, width), 20);
+  fill(150);
+  rect(0, 40, map(levelAdjusted, 0, 1, 0, width), 20);
+  fill(0);
+  rect(0, 60, map(levelSmoothed, 0, 1, 0, width), 20);
+
+  stroke(100, 200, 150);
+  for (int i = 0; i < mic.bufferSize () - 1; i++)
+  {
+    x1 = map(i, 0, mic.bufferSize()-1, 0, width);
+    y1 = mic.left.get(i) * h;
+    x2 = map(i+1, 0, mic.bufferSize()-1, 0, width);
+    y2 = mic.left.get(i+1) * h;
+    line( x1, y1, x2, y2 );
+  }
+  translate(0, 100);
+  for (int i = 0; i < mic.bufferSize () - 1; i++)
+  { 
+    x1 = map(i, 0, mic.bufferSize()-1, 0, width);
+    y1 = mic.right.get(i) * h;
+    x2 = map(i+1, 0, mic.bufferSize()-1, 0, width);
+    y2 = mic.right.get(i+1) * h;
+    line( x1, y1, x2, y2 );
+  }
+
+  popMatrix();
 }
 
